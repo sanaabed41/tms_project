@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './users/admin/admin.module';
 import { UsersModule } from './users/users.module';
 import { CamionModule } from './camion/camion.module';
+import { MissionModule } from './mission/mission.module';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
@@ -23,6 +24,7 @@ import { CamionModule } from './camion/camion.module';
     UsersModule,
     AdminModule,
     CamionModule,
+    MissionModule,
   ],
 })
 export class AppModule {}
