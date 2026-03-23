@@ -17,12 +17,29 @@ export class MissionService {
   ) {}
 
   // ✅ Générer une référence unique
-  private async generateReference(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.missionRepository.count();
-    const number = String(count + 1).padStart(3, '0');
-    return `MSN-${year}-${number}`;
+  // ✅ Remplace generateReference() par cette version robuste
+private async generateReference(): Promise<string> {
+  const year = new Date().getFullYear();
+  
+  // Cherche la dernière référence de l'année en cours
+  const lastMission = await this.missionRepository
+    .createQueryBuilder('mission')
+    .where('mission.reference LIKE :pattern', { pattern: `MSN-${year}-%` })
+    .orderBy('mission.id', 'DESC')
+    .getOne();
+
+  let nextNumber = 1;
+
+  if (lastMission) {
+    // Extrait le numéro de la dernière référence ex: MSN-2026-003 → 3
+    const parts = lastMission.reference.split('-');
+    const lastNumber = parseInt(parts[2], 10);
+    nextNumber = lastNumber + 1;
   }
+
+  const number = String(nextNumber).padStart(3, '0');
+  return `MSN-${year}-${number}`;
+}
 
   // ✅ Créer une mission
   async create(data: {

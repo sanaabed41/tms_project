@@ -10,6 +10,7 @@ import {
 import { MissionStatus } from './enums/mission-status.enum';
 import { User } from '../users/user.entity';
 import { Camion } from '../camion/camion.entity';
+import { Company } from '../company/company.entity'; // ✅ Ajoute
 
 @Entity()
 export class Mission {
@@ -17,7 +18,7 @@ export class Mission {
   id: number;
 
   @Column({ unique: true })
-  reference: string; // ex: MSN-2024-001
+  reference: string;
 
   @Column()
   origine: string;
@@ -32,7 +33,7 @@ export class Mission {
   dateArriveePrevu: Date;
 
   @Column({ nullable: true })
-  dateArriveeReelle: Date; // rempli quand DELIVERED
+  dateArriveeReelle: Date;
 
   @Column({
     type: 'enum',
@@ -48,15 +49,15 @@ export class Mission {
   distanceKm: number;
 
   @Column({ nullable: true, type: 'decimal', precision: 10, scale: 2 })
-  poids: number; // poids en tonnes
+  poids: number;
 
   @Column({ nullable: true, type: 'text' })
-  notes: string; // notes du driver
+  notes: string;
 
   @Column({ nullable: true, type: 'text' })
-  cancelReason: string; // raison d'annulation
+  cancelReason: string;
 
-  // 🔗 Camion assigné
+  // 🔗 Camion
   @ManyToOne(() => Camion, { nullable: true, eager: true })
   @JoinColumn({ name: 'camionId' })
   camion: Camion;
@@ -64,7 +65,7 @@ export class Mission {
   @Column({ nullable: true })
   camionId: number | null;
 
-  // 🔗 Driver assigné
+  // 🔗 Driver
   @ManyToOne(() => User, { nullable: true, eager: true })
   @JoinColumn({ name: 'driverId' })
   driver: User;
@@ -72,13 +73,21 @@ export class Mission {
   @Column({ nullable: true })
   driverId: number | null;
 
-  // 🔗 Client lié
+  // 🔗 Client
   @ManyToOne(() => User, { nullable: true, eager: true })
   @JoinColumn({ name: 'clientId' })
   client: User;
 
   @Column({ nullable: true })
   clientId: number | null;
+
+  // 🔗 Company ✅ NOUVEAU
+  @ManyToOne(() => Company, { nullable: true, eager: true })
+  @JoinColumn({ name: 'companyId' })
+  company: Company;
+
+  @Column({ nullable: true })
+  companyId: number | null;
 
   // 🔗 Créé par
   @ManyToOne(() => User, { nullable: true, eager: true })
