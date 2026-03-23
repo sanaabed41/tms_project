@@ -22,11 +22,20 @@ export class BonLivraisonService {
 
   // ✅ Générer référence unique
   private async generateReference(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.blRepository.count();
-    const number = String(count + 1).padStart(3, '0');
-    return `BL-${year}-${number}`;
-  }
+  const year = new Date().getFullYear();
+
+  const last = await this.blRepository
+    .createQueryBuilder('bl')
+    .where('bl.reference LIKE :pattern', { pattern: `BL-${year}-%` })
+    .orderBy('bl.id', 'DESC')
+    .getOne();
+
+  const nextNumber = last
+    ? parseInt(last.reference.split('-')[2], 10) + 1
+    : 1;
+
+  return `BL-${year}-${String(nextNumber).padStart(3, '0')}`;
+}
 
   // ✅ Créer manuellement
   async create(data: {
