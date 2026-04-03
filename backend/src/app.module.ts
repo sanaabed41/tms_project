@@ -8,6 +8,7 @@ import { CamionModule } from './camion/camion.module';
 import { MissionModule } from './mission/mission.module';
 import { CompanyModule } from './company/company.module';
 import { BonLivraisonModule } from './bon-livraison/bon-livraison.module';
+import { FactureModule } from './facture/facture.module';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
@@ -29,6 +30,7 @@ import { BonLivraisonModule } from './bon-livraison/bon-livraison.module';
     MissionModule,
     CompanyModule,
     BonLivraisonModule,
+    FactureModule,
   ],
 })
 export class AppModule {}
