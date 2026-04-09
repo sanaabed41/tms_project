@@ -46,6 +46,10 @@ export class Company {
   @Column({ default: true })
   isActive: boolean;
 
+  // Code unique pour l'auto-inscription des clients
+  @Column({ unique: true, nullable: true })
+  companyCode: string;
+
   // 🔗 Contacts (Users avec role CLIENT)
   @OneToMany(() => User, (user) => user.company)
   contacts: User[];

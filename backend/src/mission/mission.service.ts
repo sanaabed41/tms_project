@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -53,9 +52,14 @@ private async generateReference(): Promise<string> {
     clientId?: number;
     camionId?: number;
     driverId?: number;
+    companyId?: number;
     createdById: number;
-  }): Promise<any> {
+  }, requestUser?: { role: string; companyId: number | null }): Promise<any> {
     const reference = await this.generateReference();
+
+    const companyId = requestUser?.role !== 'SUPER_ADMIN'
+      ? (requestUser?.companyId ?? data.companyId ?? null)
+      : (data.companyId ?? null);
 
     // Si camion + driver fournis → statut ASSIGNED directement
     const status = data.camionId && data.driverId
@@ -64,6 +68,7 @@ private async generateReference(): Promise<string> {
 
     const mission = this.missionRepository.create({
       ...data,
+      companyId,
       reference,
       status,
     });
@@ -81,8 +86,8 @@ private async generateReference(): Promise<string> {
     driverId?: number;
     clientId?: number;
     camionId?: number;
-    createdById?: number;
-  }): Promise<any> {
+    companyId?: number;
+  }, requestUser?: { role: string; companyId: number | null }): Promise<any> {
     const query = this.missionRepository.createQueryBuilder('mission')
       .leftJoinAndSelect('mission.camion', 'camion')
       .leftJoinAndSelect('mission.driver', 'driver')
@@ -100,6 +105,11 @@ private async generateReference(): Promise<string> {
     }
     if (filters?.camionId) {
       query.andWhere('mission.camionId = :camionId', { camionId: filters.camionId });
+    }
+    if (requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId) {
+      query.andWhere('mission.companyId = :cid', { cid: requestUser.companyId });
+    } else if (filters?.companyId) {
+      query.andWhere('mission.companyId = :cid', { cid: filters.companyId });
     }
 
     query.orderBy('mission.createdAt', 'DESC');
@@ -228,14 +238,20 @@ private async generateReference(): Promise<string> {
   }
 
   // ✅ Statistiques
-  async getStats(): Promise<any> {
-    const total = await this.missionRepository.count();
-    const pending = await this.missionRepository.count({ where: { status: MissionStatus.PENDING } });
-    const assigned = await this.missionRepository.count({ where: { status: MissionStatus.ASSIGNED } });
-    const inProgress = await this.missionRepository.count({ where: { status: MissionStatus.IN_PROGRESS } });
-    const delivered = await this.missionRepository.count({ where: { status: MissionStatus.DELIVERED } });
-    const done = await this.missionRepository.count({ where: { status: MissionStatus.DONE } });
-    const cancelled = await this.missionRepository.count({ where: { status: MissionStatus.CANCELLED } });
+  async getStats(requestUser?: { role: string; companyId: number | null }): Promise<any> {
+    const scope: any = requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId
+      ? { companyId: requestUser.companyId }
+      : {};
+
+    const [total, pending, assigned, inProgress, delivered, done, cancelled] = await Promise.all([
+      this.missionRepository.count({ where: scope }),
+      this.missionRepository.count({ where: { ...scope, status: MissionStatus.PENDING } }),
+      this.missionRepository.count({ where: { ...scope, status: MissionStatus.ASSIGNED } }),
+      this.missionRepository.count({ where: { ...scope, status: MissionStatus.IN_PROGRESS } }),
+      this.missionRepository.count({ where: { ...scope, status: MissionStatus.DELIVERED } }),
+      this.missionRepository.count({ where: { ...scope, status: MissionStatus.DONE } }),
+      this.missionRepository.count({ where: { ...scope, status: MissionStatus.CANCELLED } }),
+    ]);
 
     return { total, pending, assigned, inProgress, delivered, done, cancelled };
   }

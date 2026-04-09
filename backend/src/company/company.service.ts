@@ -207,6 +207,33 @@ export class CompanyService {
     return { message: `Contact #${contactId} removed from company #${companyId}` };
   }
 
+  // ✅ Annuaire public — uniquement les entreprises actives, infos non sensibles
+  async findPublic(search?: string): Promise<any> {
+    const query = this.companyRepository.createQueryBuilder('company')
+      .where('company.isActive = true');
+
+    if (search) {
+      query.andWhere(
+        '(company.nom ILIKE :s OR company.ville ILIKE :s)',
+        { s: `%${search}%` },
+      );
+    }
+
+    query.orderBy('company.nom', 'ASC');
+    const companies = await query.getMany();
+
+    return {
+      total: companies.length,
+      companies: companies.map((c) => ({
+        companyCode: c.companyCode,
+        nom: c.nom,
+        ville: c.ville,
+        pays: c.pays,
+        siteWeb: c.siteWeb,
+      })),
+    };
+  }
+
   // ✅ Stats
   async getStats(): Promise<any> {
     const total = await this.companyRepository.count();

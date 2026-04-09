@@ -19,13 +19,14 @@ export class CamionService {
   ) {}
 
   // ✅ Créer un camion
-  async create(dto: CreateCamionDto): Promise<any> {
+  async create(dto: CreateCamionDto, requestUser?: { role: string; companyId: number | null }): Promise<any> {
     const existing = await this.camionRepository.findOne({
       where: { matricule: dto.matricule },
     });
     if (existing) throw new ConflictException(`Matricule ${dto.matricule} already exists`);
 
-    const camion = this.camionRepository.create(dto);
+    const companyId = requestUser?.role !== 'SUPER_ADMIN' ? (requestUser?.companyId ?? null) : (dto as any).companyId ?? null;
+    const camion = this.camionRepository.create({ ...dto, companyId });
     const saved = await this.camionRepository.save(camion);
     return {
       message: 'Camion created successfully',
@@ -39,7 +40,8 @@ export class CamionService {
     type?: CamionType;
     isActive?: boolean;
     driverId?: number;
-  }): Promise<any> {
+    companyId?: number;
+  }, requestUser?: { role: string; companyId: number | null }): Promise<any> {
     const query = this.camionRepository.createQueryBuilder('camion')
       .leftJoinAndSelect('camion.driver', 'driver');
 
@@ -54,6 +56,12 @@ export class CamionService {
     }
     if (filters?.driverId) {
       query.andWhere('camion.driverId = :driverId', { driverId: filters.driverId });
+    }
+    // Scope by company unless SUPER_ADMIN
+    if (requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId) {
+      query.andWhere('camion.companyId = :cid', { cid: requestUser.companyId });
+    } else if (filters?.companyId) {
+      query.andWhere('camion.companyId = :cid', { cid: filters.companyId });
     }
 
     query.orderBy('camion.createdAt', 'DESC');
@@ -180,9 +188,13 @@ export class CamionService {
   }
 
   // ✅ Camions disponibles (pour assignation à une mission)
-  async findAvailable(): Promise<any> {
+  async findAvailable(requestUser?: { role: string; companyId: number | null }): Promise<any> {
+    const where: any = { status: CamionStatus.AVAILABLE, isActive: true };
+    if (requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId) {
+      where.companyId = requestUser.companyId;
+    }
     const camions = await this.camionRepository.find({
-      where: { status: CamionStatus.AVAILABLE, isActive: true },
+      where,
       relations: ['driver'],
     });
     return {
@@ -222,32 +234,21 @@ export class CamionService {
     };
   }
 
-  async getStats(): Promise<any> {
-  const total = await this.camionRepository.count();
-  const available = await this.camionRepository.count({
-    where: { status: CamionStatus.AVAILABLE, isActive: true },
-  });
-  const inMission = await this.camionRepository.count({
-    where: { status: CamionStatus.IN_MISSION },
-  });
-  const maintenance = await this.camionRepository.count({
-    where: { status: CamionStatus.MAINTENANCE },
-  });
-  const outOfService = await this.camionRepository.count({
-    where: { status: CamionStatus.OUT_OF_SERVICE },
-  });
-  const inactive = await this.camionRepository.count({
-    where: { isActive: false },
-  });
+  async getStats(requestUser?: { role: string; companyId: number | null }): Promise<any> {
+  const scope: any = requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId
+    ? { companyId: requestUser.companyId }
+    : {};
 
-  return {
-    total,
-    available,
-    inMission,
-    maintenance,
-    outOfService,
-    inactive,
-  };
+  const [total, available, inMission, maintenance, outOfService, inactive] = await Promise.all([
+    this.camionRepository.count({ where: scope }),
+    this.camionRepository.count({ where: { ...scope, status: CamionStatus.AVAILABLE, isActive: true } }),
+    this.camionRepository.count({ where: { ...scope, status: CamionStatus.IN_MISSION } }),
+    this.camionRepository.count({ where: { ...scope, status: CamionStatus.MAINTENANCE } }),
+    this.camionRepository.count({ where: { ...scope, status: CamionStatus.OUT_OF_SERVICE } }),
+    this.camionRepository.count({ where: { ...scope, isActive: false } }),
+  ]);
+
+  return { total, available, inMission, maintenance, outOfService, inactive };
 }
 
 // ✅ Driver voit son propre camion

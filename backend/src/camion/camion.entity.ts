@@ -10,6 +10,7 @@ import {
 import { CamionStatus } from './enums/camion-status.enum';
 import { CamionType } from './enums/camion-type.enum';
 import { User } from '../users/user.entity';
+import { Company } from '../company/company.entity';
 
 @Entity()
 export class Camion {
@@ -62,6 +63,14 @@ export class Camion {
 
   @Column({ default: true })
   isActive: boolean;
+
+  // 🔗 Company (tenant)
+  @ManyToOne(() => Company, { nullable: true })
+  @JoinColumn({ name: 'companyId' })
+  company: Company;
+
+  @Column({ nullable: true, type: 'int' })
+  companyId: number | null;
 
   // 🔗 Relation avec le driver assigné (optionnel)
   @ManyToOne(() => User, { nullable: true, eager: true })

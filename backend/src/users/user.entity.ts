@@ -13,25 +13,25 @@ import { Company } from '../company/company.entity';
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
-  @Column()
-  password: string;
+  @Column({ nullable: true })
+  password!: string;
 
   @Column({ default: '' })
-  firstName: string;
+  firstName!: string;
 
   @Column({ nullable: true, default: '' })
-  lastName: string;
+  lastName!: string;
 
   @Column({ nullable: true })
-  phone: string;
+  phone!: string;
 
   @Column({ nullable: true })
-  profilePicture: string;
+  profilePicture!: string;
 
   @Column({
     type: 'enum',
@@ -39,25 +39,39 @@ export class User {
     enumName: 'user_role_enum',
     default: UserRole.CLIENT,
   })
-  role: UserRole;
+  role!: UserRole;
 
   @Column({ nullable: true })
-  address: string;
+  address!: string;
 
   @Column({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
+
+  // Email verification OTP
+  @Column({ default: false })
+  isEmailVerified!: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  emailVerificationCode!: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  emailVerificationExpiry!: Date | null;
+
+  // Google OAuth
+  @Column({ type: 'varchar', nullable: true })
+  googleId!: string | null;
 
   // 🔗 Company (pour les CLIENTs)
   @ManyToOne(() => Company, (company) => company.contacts, { nullable: true })
   @JoinColumn({ name: 'companyId' })
-  company: Company;
+  company!: Company;
 
   @Column({ nullable: true })
-  companyId: number | null;
+  companyId!: number | null;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 }

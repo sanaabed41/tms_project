@@ -38,11 +38,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     console.log('👤 Authenticated user:', user.email);
 
-    // ⚠️ IMPORTANT : retourner un objet simple
     return {
-  id: user.id,
-  email: user.email,
-  role: user.role,
-};
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId ?? null,
+    };
   }
 }

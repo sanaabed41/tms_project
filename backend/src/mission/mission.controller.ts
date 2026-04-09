@@ -16,7 +16,7 @@ export class MissionController {
   // ─── ADMIN + MANAGER + DISPATCHER ────────────────────
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER)
   create(@Req() req: any, @Body() body: {
     origine: string;
     destination: string;
@@ -28,15 +28,16 @@ export class MissionController {
     clientId?: number;
     camionId?: number;
     driverId?: number;
+    companyId?: number;
   }) {
     return this.missionService.create({
       ...body,
-      createdById: req.user.id, // ✅ qui a créé la mission
-    });
+      createdById: req.user.id,
+    }, req.user);
   }
 
   @Patch(':id/assign')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER)
   assign(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { camionId: number; driverId: number },
@@ -45,7 +46,7 @@ export class MissionController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
@@ -54,7 +55,7 @@ export class MissionController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ADMIN)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.missionService.remove(id);
   }
@@ -62,9 +63,9 @@ export class MissionController {
   // ─── ROUTES STATIQUES AVANT /:id ─────────────────────
 
   @Get('stats')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
-  getStats() {
-    return this.missionService.getStats();
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
+  getStats(@Req() req: any) {
+    return this.missionService.getStats(req.user);
   }
 
   @Get('my-missions')
@@ -82,25 +83,28 @@ export class MissionController {
   // ─── ADMIN + MANAGER + DISPATCHER + ACCOUNTANT ───────
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
   findAll(
+    @Req() req: any,
     @Query('status') status?: MissionStatus,
     @Query('driverId') driverId?: string,
     @Query('clientId') clientId?: string,
     @Query('camionId') camionId?: string,
+    @Query('companyId') companyId?: string,
   ) {
     const filters: any = {};
     if (status) filters.status = status;
     if (driverId) filters.driverId = +driverId;
     if (clientId) filters.clientId = +clientId;
     if (camionId) filters.camionId = +camionId;
-    return this.missionService.findAll(filters);
+    if (companyId) filters.companyId = +companyId;
+    return this.missionService.findAll(filters, req.user);
   }
 
   // ─── CHANGER STATUT ───────────────────────────────────
 
   @Patch(':id/status')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.DRIVER)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.DRIVER)
   changeStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: {
@@ -117,7 +121,7 @@ export class MissionController {
 
   @Get(':id')
   @Roles(
-    UserRole.ADMIN, UserRole.MANAGER,
+    UserRole.ADMIN,
     UserRole.DISPATCHER, UserRole.ACCOUNTANT,
     UserRole.DRIVER, UserRole.CLIENT,
   )

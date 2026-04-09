@@ -57,7 +57,10 @@ export class FactureService {
     dateEcheance?: Date;
     notes?: string;
     createdById: number;
-  }): Promise<any> {
+  }, requestUser?: { role: string; companyId: number | null }): Promise<any> {
+    if (requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId) {
+      data.companyId = requestUser.companyId;
+    }
     // Vérifie si BL existe et n'a pas déjà une facture
     if (data.bonLivraisonId) {
       const existing = await this.factureRepository.findOne({
@@ -151,12 +154,10 @@ export class FactureService {
   }
 
   // ✅ Voir toutes les factures avec filtres
-  async findAll(filters?: {
-    status?: FactureStatus;
-    clientId?: number;
-    companyId?: number;
-    missionId?: number;
-  }): Promise<any> {
+  async findAll(
+    filters?: { status?: FactureStatus; clientId?: number; companyId?: number; missionId?: number },
+    requestUser?: { role: string; companyId: number | null },
+  ): Promise<any> {
     const query = this.factureRepository.createQueryBuilder('facture')
       .leftJoinAndSelect('facture.bonLivraison', 'bonLivraison')
       .leftJoinAndSelect('facture.mission', 'mission')
@@ -164,26 +165,19 @@ export class FactureService {
       .leftJoinAndSelect('facture.company', 'company')
       .leftJoinAndSelect('facture.createdBy', 'createdBy');
 
-    if (filters?.status) {
-      query.andWhere('facture.status = :status', { status: filters.status });
-    }
-    if (filters?.clientId) {
-      query.andWhere('facture.clientId = :clientId', { clientId: filters.clientId });
-    }
-    if (filters?.companyId) {
-      query.andWhere('facture.companyId = :companyId', { companyId: filters.companyId });
-    }
-    if (filters?.missionId) {
-      query.andWhere('facture.missionId = :missionId', { missionId: filters.missionId });
+    if (filters?.status) query.andWhere('facture.status = :status', { status: filters.status });
+    if (filters?.clientId) query.andWhere('facture.clientId = :clientId', { clientId: filters.clientId });
+    if (filters?.missionId) query.andWhere('facture.missionId = :missionId', { missionId: filters.missionId });
+
+    if (requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId) {
+      query.andWhere('facture.companyId = :cid', { cid: requestUser.companyId });
+    } else if (filters?.companyId) {
+      query.andWhere('facture.companyId = :cid', { cid: filters.companyId });
     }
 
     query.orderBy('facture.createdAt', 'DESC');
     const factures = await query.getMany();
-
-    return {
-      total: factures.length,
-      factures: factures.map((f) => this.sanitize(f)),
-    };
+    return { total: factures.length, factures: factures.map((f) => this.sanitize(f)) };
   }
 
   // ✅ Voir une facture
@@ -328,37 +322,29 @@ export class FactureService {
   }
 
   // ✅ Stats financières
-  async getStats(): Promise<any> {
-    const total = await this.factureRepository.count();
-    const draft = await this.factureRepository.count({ where: { status: FactureStatus.DRAFT } });
-    const sent = await this.factureRepository.count({ where: { status: FactureStatus.SENT } });
-    const paid = await this.factureRepository.count({ where: { status: FactureStatus.PAID } });
-    const overdue = await this.factureRepository.count({ where: { status: FactureStatus.OVERDUE } });
-    const cancelled = await this.factureRepository.count({ where: { status: FactureStatus.CANCELLED } });
+  async getStats(requestUser?: { role: string; companyId: number | null }): Promise<any> {
+    const scope: any = requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId
+      ? { companyId: requestUser.companyId }
+      : {};
 
-    // Calcul du CA total payé
-    const paidFactures = await this.factureRepository.find({
-      where: { status: FactureStatus.PAID },
-    });
-    const chiffreAffaires = paidFactures.reduce(
-      (sum, f) => sum + Number(f.montantTTC), 0,
-    );
+    const [total, draft, sent, paid, overdue, cancelled] = await Promise.all([
+      this.factureRepository.count({ where: scope }),
+      this.factureRepository.count({ where: { ...scope, status: FactureStatus.DRAFT } }),
+      this.factureRepository.count({ where: { ...scope, status: FactureStatus.SENT } }),
+      this.factureRepository.count({ where: { ...scope, status: FactureStatus.PAID } }),
+      this.factureRepository.count({ where: { ...scope, status: FactureStatus.OVERDUE } }),
+      this.factureRepository.count({ where: { ...scope, status: FactureStatus.CANCELLED } }),
+    ]);
 
-    // Montant en attente
-    const pendingFactures = await this.factureRepository.find({
-      where: { status: FactureStatus.SENT },
-    });
-    const montantEnAttente = pendingFactures.reduce(
-      (sum, f) => sum + Number(f.montantTTC), 0,
-    );
+    const [paidFactures, pendingFactures, overdueFactures] = await Promise.all([
+      this.factureRepository.find({ where: { ...scope, status: FactureStatus.PAID } }),
+      this.factureRepository.find({ where: { ...scope, status: FactureStatus.SENT } }),
+      this.factureRepository.find({ where: { ...scope, status: FactureStatus.OVERDUE } }),
+    ]);
 
-    // Montant en retard
-    const overdueFactures = await this.factureRepository.find({
-      where: { status: FactureStatus.OVERDUE },
-    });
-    const montantEnRetard = overdueFactures.reduce(
-      (sum, f) => sum + Number(f.montantTTC), 0,
-    );
+    const chiffreAffaires = paidFactures.reduce((sum, f) => sum + Number(f.montantTTC), 0);
+    const montantEnAttente = pendingFactures.reduce((sum, f) => sum + Number(f.montantTTC), 0);
+    const montantEnRetard = overdueFactures.reduce((sum, f) => sum + Number(f.montantTTC), 0);
 
     return {
       total, draft, sent, paid, overdue, cancelled,

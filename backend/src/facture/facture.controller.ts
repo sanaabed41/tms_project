@@ -16,13 +16,13 @@ export class FactureController {
   // ─── CREATION ─────────────────────────────────────────
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   create(@Req() req: any, @Body() body: any) {
-    return this.factureService.create({ ...body, createdById: req.user.id });
+    return this.factureService.create({ ...body, createdById: req.user.id }, req.user);
   }
 
   @Post('from-bl/:blId')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   createFromBL(
     @Param('blId', ParseIntPipe) blId: number,
     @Req() req: any,
@@ -42,9 +42,9 @@ export class FactureController {
   // ─── ROUTES STATIQUES AVANT /:id ─────────────────────
 
   @Get('stats')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
-  getStats() {
-    return this.factureService.getStats();
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  getStats(@Req() req: any) {
+    return this.factureService.getStats(req.user);
   }
 
   @Get('my-factures')
@@ -56,8 +56,9 @@ export class FactureController {
   // ─── LISTING ──────────────────────────────────────────
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   findAll(
+    @Req() req: any,
     @Query('status') status?: FactureStatus,
     @Query('clientId') clientId?: string,
     @Query('companyId') companyId?: string,
@@ -68,19 +69,19 @@ export class FactureController {
     if (clientId) filters.clientId = +clientId;
     if (companyId) filters.companyId = +companyId;
     if (missionId) filters.missionId = +missionId;
-    return this.factureService.findAll(filters);
+    return this.factureService.findAll(filters, req.user);
   }
 
   // ─── ACTIONS SUR UNE FACTURE ──────────────────────────
 
   @Patch(':id/send')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   send(@Param('id', ParseIntPipe) id: number) {
     return this.factureService.send(id);
   }
 
   @Patch(':id/paid')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   markAsPaid(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: {
@@ -93,13 +94,13 @@ export class FactureController {
   }
 
   @Patch(':id/overdue')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   markAsOverdue(@Param('id', ParseIntPipe) id: number) {
     return this.factureService.markAsOverdue(id);
   }
 
   @Patch(':id/cancel')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ADMIN)
   cancel(
     @Param('id', ParseIntPipe) id: number,
     @Body('cancelReason') cancelReason: string,
@@ -108,13 +109,13 @@ export class FactureController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   update(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
     return this.factureService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ADMIN)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.factureService.remove(id);
   }
@@ -123,7 +124,7 @@ export class FactureController {
 
   @Get(':id')
   @Roles(
-    UserRole.ADMIN, UserRole.MANAGER,
+    UserRole.ADMIN,
     UserRole.ACCOUNTANT, UserRole.CLIENT,
   )
   findOne(@Param('id', ParseIntPipe) id: number) {

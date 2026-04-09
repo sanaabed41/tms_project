@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PassportModule } from '@nestjs/passport';
+import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './users/admin/admin.module';
 import { UsersModule } from './users/users.module';
@@ -9,8 +9,11 @@ import { MissionModule } from './mission/mission.module';
 import { CompanyModule } from './company/company.module';
 import { BonLivraisonModule } from './bon-livraison/bon-livraison.module';
 import { FactureModule } from './facture/facture.module';
+import { SuperAdminModule } from './super-admin/super-admin.module';
+import { CompanyRequestModule } from './company-request/company-request.module';
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost',
@@ -31,6 +34,8 @@ import { FactureModule } from './facture/facture.module';
     CompanyModule,
     BonLivraisonModule,
     FactureModule,
+    SuperAdminModule,
+    CompanyRequestModule,
   ],
 })
 export class AppModule {}

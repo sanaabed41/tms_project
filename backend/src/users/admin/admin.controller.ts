@@ -1,46 +1,56 @@
 import {
   Controller,
   Post, Get, Patch, Delete,
-  Param, Body, ParseIntPipe, Query,
+  Param, Body, ParseIntPipe, Query, Req,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../users/enums/user-role.enum';
 
 @Controller('admin')
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN) // SUPER_ADMIN bypasses this via RolesGuard
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
+  // POST /admin/invite
+  @Post('invite')
+  inviteUser(@Req() req: any, @Body() body: { email: string; role: UserRole }) {
+    return this.adminService.inviteUser({ ...body, companyId: req.user.companyId ?? null });
+  }
+
   // POST /admin/drivers
   @Post('drivers')
-  createDriver(@Body() body: any) {
-    return this.adminService.createDriver(body);
+  createDriver(@Req() req: any, @Body() body: any) {
+    return this.adminService.createDriver(body, req.user);
   }
 
   // POST /admin/users
   @Post('users')
-  createUser(@Body() body: {
+  createUser(@Req() req: any, @Body() body: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
     phone?: string;
     role: UserRole;
+    companyId?: number;
   }) {
-    return this.adminService.createUser(body);
+    return this.adminService.createUser(body, req.user);
   }
 
-  // GET /admin/users?role=DRIVER&isActive=true
+  // GET /admin/users?role=DRIVER&isActive=true&companyId=1
   @Get('users')
   findAllUsers(
+    @Req() req: any,
     @Query('role') role?: UserRole,
     @Query('isActive') isActive?: string,
+    @Query('companyId') companyId?: string,
   ) {
     const filters: any = {};
     if (role) filters.role = role;
     if (isActive !== undefined) filters.isActive = isActive === 'true';
-    return this.adminService.findAllUsers(filters);
+    if (companyId) filters.companyId = +companyId;
+    return this.adminService.findAllUsers(filters, req.user);
   }
 
   // GET /admin/users/:id

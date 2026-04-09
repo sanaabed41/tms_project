@@ -1,18 +1,39 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../../users/users.service';
 import { UserRole } from '../../users/enums/user-role.enum';
 import { User } from '../../users/user.entity';
+import { MailService } from '../../mail/mail.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
   constructor(
     private usersService: UsersService,
+    private jwtService: JwtService,
+    private mailService: MailService,
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+
+  // ✅ Inviter un utilisateur par email avec un rôle spécifique
+  async inviteUser(data: { email: string; role: UserRole; companyId?: number | null }) {
+    const existing = await this.usersService.findByEmail(data.email);
+    if (existing) throw new ConflictException('Cet email est déjà utilisé');
+
+    const inviteToken = this.jwtService.sign(
+      { email: data.email, role: data.role, type: 'invite', companyId: data.companyId ?? null },
+      { expiresIn: '24h' },
+    );
+
+    await this.mailService.sendInvitation(data.email, data.role, inviteToken);
+
+    return {
+      message: `Invitation envoyée à ${data.email} pour le rôle ${data.role}`,
+    };
+  }
 
   // ✅ Créer un driver
   async createDriver(data: {
@@ -21,15 +42,17 @@ export class AdminService {
     firstName: string;
     lastName: string;
     phone?: string;
-  }) {
+  }, requestUser?: { role: string; companyId: number | null }) {
     const existing = await this.usersService.findByEmail(data.email);
     if (existing) throw new ConflictException('Email already in use');
 
+    const companyId = requestUser?.role !== 'SUPER_ADMIN' ? (requestUser?.companyId ?? null) : null;
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const driver = await this.usersService.create({
       ...data,
       password: hashedPassword,
       role: UserRole.DRIVER,
+      companyId,
     });
 
     return {
@@ -46,14 +69,17 @@ export class AdminService {
     lastName: string;
     phone?: string;
     role: UserRole;
-  }) {
+    companyId?: number | null;
+  }, requestUser?: { role: string; companyId: number | null }) {
     const existing = await this.usersService.findByEmail(data.email);
     if (existing) throw new ConflictException('Email already in use');
 
+    const companyId = requestUser?.role !== 'SUPER_ADMIN' ? (requestUser?.companyId ?? null) : (data.companyId ?? null);
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const user = await this.usersService.create({
       ...data,
       password: hashedPassword,
+      companyId,
     });
 
     return {
@@ -63,7 +89,7 @@ export class AdminService {
   }
 
   // ✅ Voir tous les users avec filtres optionnels
-  async findAllUsers(filters?: { role?: UserRole; isActive?: boolean }) {
+  async findAllUsers(filters?: { role?: UserRole; isActive?: boolean; companyId?: number | null }, requestUser?: { role: string; companyId: number | null }) {
     const query = this.userRepository.createQueryBuilder('user');
 
     if (filters?.role) {
@@ -72,6 +98,13 @@ export class AdminService {
 
     if (filters?.isActive !== undefined) {
       query.andWhere('user.isActive = :isActive', { isActive: filters.isActive });
+    }
+
+    // Scope by company unless SUPER_ADMIN
+    if (requestUser?.role !== 'SUPER_ADMIN' && requestUser?.companyId) {
+      query.andWhere('user.companyId = :cid', { cid: requestUser.companyId });
+    } else if (filters?.companyId !== undefined && filters.companyId !== null) {
+      query.andWhere('user.companyId = :cid', { cid: filters.companyId });
     }
 
     query.orderBy('user.createdAt', 'DESC');

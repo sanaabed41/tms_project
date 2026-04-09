@@ -19,19 +19,19 @@ export class CamionController {
   // ─── ADMIN + MANAGER ONLY ─────────────────────────────
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
-  create(@Body() dto: CreateCamionDto) {
-    return this.camionService.create(dto);
+  @Roles(UserRole.ADMIN)
+  create(@Body() dto: CreateCamionDto, @Req() req: any) {
+    return this.camionService.create(dto, req.user);
   }
 
   @Patch(':id/activate')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ADMIN)
   activate(@Param('id', ParseIntPipe) id: number) {
     return this.camionService.activate(id);
   }
 
   @Patch(':id/deactivate')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ADMIN)
   deactivate(@Param('id', ParseIntPipe) id: number) {
     return this.camionService.deactivate(id);
   }
@@ -45,7 +45,7 @@ export class CamionController {
   // ─── ADMIN + MANAGER + DISPATCHER ────────────────────
 
   @Patch(':id/status')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER)
   changeStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body('status') status: CamionStatus,
@@ -54,7 +54,7 @@ export class CamionController {
   }
 
   @Patch(':id/assign-driver')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER)
   assignDriver(
     @Param('id', ParseIntPipe) id: number,
     @Body('driverId') driverId: number,
@@ -63,7 +63,7 @@ export class CamionController {
   }
 
   @Patch(':id/unassign-driver')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER)
   unassignDriver(@Param('id', ParseIntPipe) id: number) {
     return this.camionService.unassignDriver(id);
   }
@@ -71,15 +71,15 @@ export class CamionController {
   // ─── ROUTES STATIQUES — AVANT /:id ───────────────────
 
   @Get('available')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER)
-  findAvailable() {
-    return this.camionService.findAvailable();
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER)
+  findAvailable(@Req() req: any) {
+    return this.camionService.findAvailable(req.user);
   }
 
   @Get('stats')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
-  getStats() {
-    return this.camionService.getStats();
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
+  getStats(@Req() req: any) {
+    return this.camionService.getStats(req.user);
   }
 
   @Get('my-camion')
@@ -89,7 +89,7 @@ export class CamionController {
   }
 
   @Get('matricule/:matricule')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
   findByMatricule(@Param('matricule') matricule: string) {
     return this.camionService.findByMatricule(matricule);
   }
@@ -97,25 +97,28 @@ export class CamionController {
   // ─── ADMIN + MANAGER + DISPATCHER + ACCOUNTANT ───────
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT)
   findAll(
+    @Req() req: any,
     @Query('status') status?: CamionStatus,
     @Query('type') type?: CamionType,
     @Query('isActive') isActive?: string,
     @Query('driverId') driverId?: string,
+    @Query('companyId') companyId?: string,
   ) {
     const filters: any = {};
     if (status) filters.status = status;
     if (type) filters.type = type;
     if (isActive !== undefined) filters.isActive = isActive === 'true';
     if (driverId) filters.driverId = +driverId;
-    return this.camionService.findAll(filters);
+    if (companyId) filters.companyId = +companyId;
+    return this.camionService.findAll(filters, req.user);
   }
 
   // ─── PATCH GENERAL — ADMIN + MANAGER ─────────────────
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ADMIN)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCamionDto,
@@ -128,7 +131,6 @@ export class CamionController {
   @Get(':id')
   @Roles(
     UserRole.ADMIN,
-    UserRole.MANAGER,
     UserRole.DISPATCHER,
     UserRole.ACCOUNTANT,
     UserRole.DRIVER,
